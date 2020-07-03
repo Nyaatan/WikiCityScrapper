@@ -53,7 +53,7 @@ def _get_soup(url):
     return BeautifulSoup(page.content, 'html.parser')
 
 
-def get_city_data(name, id, coords=None):
+def get_city_data(name, coords=None):
     soup = _get_soup(wiki_article_base_url % name)
     geoloc = (soup.find(class_='latitude').text.replace(' ', ''), soup.find(class_='longitude').text.replace(' ', ''))
 
@@ -68,7 +68,6 @@ def get_city_data(name, id, coords=None):
         'year_of_survey': None,  #
         'year_of_city_founding': None,
         'city_url': None,
-        'wiki_page_number': None,
         'area': None,
         'region': None
     }
@@ -89,8 +88,19 @@ def get_city_data(name, id, coords=None):
                     pass
                 result['population'] = int(max(re.findall(
                     '.*?(\d*).*?', rows[list(rows).index(line) + 1].find('td').text.replace(',', ''))))
+            elif 'Country' in header.text:
+                row = rows[list(rows).index(line) + 1]
+                result.pop('region')
+                result[row.find('th').text.lower()] = row.find('td').text
+            elif 'Website' in header.text:
+                result["city_url"] = line.find('td').text.lower()
+            elif 'Settled' in header.text or 'Founded' in header.text:
+                result['year_of_city_founding'] = line.find('td').text
             elif 'Area' in header.text:
-                pass
+                row = rows[list(rows).index(line) + 1]
+                result['area'] = row.find('td').text if 'km' in row.find('td').text or 'mi' in row.find('td').text \
+                    else result['area']
+
     print(json.dumps(result, indent=4))
 
     # print(geodata_raw)
@@ -101,9 +111,9 @@ if __name__ == '__main__':
     if len(sys.argv) == 2 and sys.argv[1] in ['help', 'h']:
         print(help_msg)
     try:
-        if len(sys.argv) == 3:
-            get_city_data(sys.argv[1], sys.argv[2])
-        elif len(sys.argv) == 5:
-            get_city_data(sys.argv[1], sys.argv[2], (sys.argv[3], sys.argv[4]))
+        if len(sys.argv) == 2:
+            get_city_data(sys.argv[1])
+        elif len(sys.argv) == 4:
+            get_city_data(sys.argv[1], (sys.argv[2], sys.argv[3]))
     except IndexError:
         print(help_msg, file=sys.stderr)
